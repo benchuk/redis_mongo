@@ -1,0 +1,22 @@
+{
+  "name": "redis_mongo",
+  "version": "1.0.0",
+  "description": "performance tests for spatial",
+  "main": "app.js",
+  "scripts": {
+    "test": "node app.js"
+  },
+  "keywords": [
+    "performence",
+    "mongo",
+    "redis",
+    "spatial"
+  ],
+  "author": "benchuk",
+  "license": "MIT",
+  "dependencies": {
+    "ioredis": "^4.9.0",
+    "mongodb": "^3.2.3",
+    "mongoose": "^4.11.1"
+  }
+}
