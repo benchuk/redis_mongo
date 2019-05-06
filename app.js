@@ -6,9 +6,15 @@ var geoRedis = require('georedis').initialize(client)
 const url = 'mongodb://localhost:27017'
 const dbName = 'spatialTest'
 const shouldInsert = false
-const DISTANCE = 10000
-const queryLat = 34.1
+//const shouldInsert = false
+const runMongo = true
+const runRedis = false
+const amount = 100000
+const DISTANCE = 1000000
+const queryLat = 31.1
 const queryLon = 31.1
+const latDelta = 0.0001
+const lonDelta = 0.0001
 
 MongoClient.connect(url, function(err, client) {
   if (err) {
@@ -28,86 +34,101 @@ MongoClient.connect(url, function(err, client) {
       console.log('==============ERRRRROR===========================')
     }
     console.log('*************************   Collection is created!')
+    if (runMongo) {
+      RunMongoTests(db, amount)
+    }
 
-    var amount = 1000
-
-    //RunMongoTests(db, amount)
-
-    RunRedisTests(geoRedis, amount)
-    //client.close()
-    // close the connection to db when you are done with it
-    //db.close()
+    if (runRedis) {
+      RunRedisTests(geoRedis, amount)
+    }
   })
   console.log('=========================================')
 })
 
-let latDelta = 0.001
-let lonDelta = 0.001
-
-function RunMongoTests(db, amount) {
+function RunMongoTests(db, count) {
   if (shouldInsert) {
     var insertStart = new Date()
     console.log('mongoDbInsertSpatialItems')
-    mongoDbInsertSpatialItems(db, queryLat, queryLon, amount)
+    mongoDbInsertSpatialItems(db, queryLat, queryLon, count)
     var end = new Date() - insertStart
     console.log(
       'mongoDbInsertSpatialItems: Insert Execution time: %dms for %d items',
       end,
-      amount
+      count
     )
   }
   console.log('mongoDbRunSpatialTest')
   var queryStart = new Date()
-  let res = mongoDbRunSpatialTest(db)
-  var end2 = new Date() - queryStart
-  console.log(
-    'mongoDbRunSpatialTest: Query Execution time: %dms for %d items',
-    end2,
-    amount
-  )
+  mongoDbRunSpatialTest(db, function() {
+    var end2 = new Date() - queryStart
+    console.log(
+      'mongoDbRunSpatialTest: Query Execution time: %dms for %d items',
+      end2,
+      amount
+    )
+  })
 }
 
 /***************  Mongo ********************************/
 function mongoDbInsertSpatialItems(db, lat, lon, count) {
+  console.log('inserting mongo')
+  var batch = db.collection('places').initializeOrderedBulkOp()
   for (var i = 0; i < count; i++) {
-    console.log('i: ' + i)
+    //console.log('i: ' + i)
 
     lat += latDelta
     lon += lonDelta
-    console.log('lat: ' + lat)
-    console.log('lon: ' + lon)
+    //console.log('lat: ' + lat)
+    //console.log('lon: ' + lon)
 
-    db.collection('places').insert({
+    var newItem = {
       name: 'item ' + i,
       location: {
         type: 'Point',
         coordinates: [lat, lon]
       }
-    })
+    }
+    batch.insert(newItem)
+
+    // Execute the operations
+
+    // db.collection('places').insert(
+    //   {
+    //     name: 'item ' + i,
+    //     location: {
+    //       type: 'Point',
+    //       coordinates: [lat, lon]
+    //     }
+    //   },
+    //   function(err, res) {
+    //     if (err) throw err
+    //     console.log(i + ' document inserted')
+    //   }
+    // )
   }
+  batch.execute(function(err, result) {
+    console.log(err)
+    console.log(result)
+  })
+  console.log('done - last lat, lon -> [lat:' + lat + ' , lon:' + lon + ']')
 }
 
-function mongoDbInsertSpatialItems(db, lat, lon, count) {
-  for (var i = 0; i < count; i++) {
-    console.log('i: ' + i)
-
-    lat += latDelta
-    lon += lonDelta
-    console.log('lat: ' + lat)
-    console.log('lon: ' + lon)
-
-    db.collection('places').insert({
-      name: 'item ' + i,
-      location: {
-        type: 'Point',
-        coordinates: [lat, lon]
-      }
-    })
-  }
-}
-
-function mongoDbRunSpatialTest(db) {
+function mongoDbRunSpatialTest(db, cb) {
+  let distance = DISTANCE / 1000.0 / 6378.137
+  console.log('distance: ' + distance)
   db.collection('places')
+    // .find({
+    //   location: { $nearSphere: [queryLat, queryLon], $minDistance: distance }
+    // })
+    // .find({
+    //   location: {
+    //     $nearSphere: {
+    //       $geometry: { type: 'Point', coordinates: [queryLat, queryLon] },
+    //       $minDistance: 0,
+    //       $maxDistance: DISTANCE
+    //     }
+    //   }
+    // })
     .find({
       location: {
         $near: {
@@ -119,62 +140,82 @@ function mongoDbRunSpatialTest(db) {
     })
     .toArray(function(err, docs) {
       console.log(err)
-      console.log(docs)
+      console.log(
+        '******************************* mongo nearby locations: ' + docs.length
+      )
+      console.log(docs[docs.length - 1])
+      cb()
     })
 }
 
-function RunRedisTests(geoRedis, amount) {
+function RunRedisTests(geoRedis, count) {
   if (shouldInsert) {
     var insertStart = new Date()
     console.log('redisInsertSpatialItems')
-    redisInsertSpatialItems(geoRedis, queryLat, queryLon, amount)
+    redisInsertSpatialItems(geoRedis, queryLat, queryLon, count)
     var end = new Date() - insertStart
     console.log(
       'RunRedisTests: Insert Execution time: %dms for %d items',
       end,
-      amount
+      count
     )
   }
   console.log('geoRedisRunSpatialTest')
   var queryStart = new Date()
-  let res = geoRedisRunSpatialTest(geoRedis)
-  var end2 = new Date() - queryStart
-  console.log(
-    'geoRedisRunSpatialTest: Query Execution time: %dms for %d items',
-    end2,
-    amount
-  )
+  geoRedisRunSpatialTest(geoRedis, function() {
+    var end2 = new Date() - queryStart
+    console.log(
+      'geoRedisRunSpatialTest: Query Execution time: %dms for %d items',
+      end2,
+      amount
+    )
+  })
 }
 
 function redisInsertSpatialItems(geo, lat, lon, count) {
+  console.log('inserting redis')
   for (var i = 0; i < count; i++) {
-    console.log('i: ' + i)
+    //console.log('i: ' + i)
 
     lat += latDelta
     lon += lonDelta
-    console.log('lat: ' + lat)
-    console.log('lon: ' + lon)
+    //console.log('lat: ' + lat)
+    //console.log('lon: ' + lon)
 
-    geo.addLocation('item ' + i, { latitude: lat, longitude: lon }, function(
+    geo.addLocation('item_' + i, { latitude: lat, longitude: lon }, function(
       err,
       reply
     ) {
       if (err) console.error(err)
-      else console.log('added location:', reply)
+      //else console.log('added location:', reply)
     })
   }
+  console.log('done - last lat, lon -> [lat:' + lat + ' , lon:' + lon + ']')
 }
 
-function geoRedisRunSpatialTest(geo) {
-  geo.nearby({ latitude: queryLat, longitude: queryLon }, DISTANCE, function(
-    err,
-    locations
-  ) {
-    if (err) console.error(err)
-    else
-      console.log(
-        '******************************* nearby locations:',
-        locations
-      )
-  })
+function geoRedisRunSpatialTest(geo, cb) {
+  var options = {
+    withCoordinates: true, // Will provide coordinates with locations, default false
+    //withHashes: true, // Will provide a 52bit Geohash Integer, default false
+    //withDistances: true, // Will provide distance from query, default false
+    //order: 'ASC', // or 'DESC' or true (same as 'ASC'), default false
+    units: 'm', // or 'km', 'mi', 'ft', default 'm'
+    //count: 100, // Number of results to return, default undefined
+    accurate: true // Useful if in emulated mode and accuracy is important, default false
+  }
+  geo.nearby(
+    { latitude: queryLat, longitude: queryLon },
+    DISTANCE,
+    options,
+    function(err, locations) {
+      if (err) console.error(err)
+      else
+        console.log(
+          '******************************* redis nearby locations:',
+          locations.length
+        )
+      console.log(locations[locations.length - 1])
+      cb()
+    }
+  )
 }
