@@ -11,11 +11,11 @@ const shouldInsert = false
 const runMongo = true
 const runRedis = true
 const amount = 10000
-const DISTANCE = 100000
+const DISTANCE = 50000
 const queryLat = 31.1
 const queryLon = 31.1
-const latDelta = 0.0001
-const lonDelta = 0.0001
+const latDelta = 0.0004
+const lonDelta = 0.0 //0.0001
 
 MongoClient.connect(url, function(err, client) {
   if (err) {
@@ -86,7 +86,7 @@ function mongoDbInsertSpatialItems(db, lat, lon, count) {
       name: 'item_' + i,
       location: {
         type: 'Point',
-        coordinates: [lat, lon]
+        coordinates: [lon, lat]
       }
     }
     batch.insert(newItem)
@@ -117,39 +117,39 @@ function mongoDbInsertSpatialItems(db, lat, lon, count) {
 function mongoDbRunSpatialTest(db, cb) {
   let distance = DISTANCE / 1000.0 / 6378.137
   console.log('distance: ' + distance)
-  //   db.collection('places')
-  //     // .find({
-  //     //   location: { $nearSphere: [queryLat, queryLon], $minDistance: distance }
-  //     // })
-  //     // .find({
-  //     //   location: {
-  //     //     $nearSphere: {
-  //     //       $geometry: { type: 'Point', coordinates: [queryLat, queryLon] },
-  //     //       $minDistance: 0,
-  //     //       $maxDistance: DISTANCE
-  //     //     }
-  //     //   }
-  //     // })
-  //     .find({
-  //       location: {
-  //         $near: {
-  //           $geometry: { type: 'Point', coordinates: [queryLat, queryLon] },
-  //           $minDistance: 0,
-  //           $maxDistance: DISTANCE
-  //         }
-  //       }
-  //     })
-
   db.collection('places')
+    //     // .find({
+    //     //   location: { $nearSphere: [queryLat, queryLon], $minDistance: distance }
+    //     // })
+    // .find({
+    //   location: {
+    //     $nearSphere: {
+    //       $geometry: { type: 'Point', coordinates: [queryLat, queryLon] },
+    //       $minDistance: 0,
+    //       $maxDistance: DISTANCE
+    //     }
+    //   }
+    // })
+    // .find({
+    //   location: {
+    //     $near: {
+    //       $geometry: { type: 'Point', coordinates: [queryLat, queryLon] },
+    //       $minDistance: 0,
+    //       $maxDistance: DISTANCE
+    //     }
+    //   }
+    // })
+
+    // db.collection('places')
     .aggregate([
       {
         $geoNear: {
-          spherical: true,
+          spherical: false,
           near: { type: 'Point', coordinates: [queryLat, queryLon] },
           distanceField: 'calculated',
-          maxDistance: DISTANCE,
+          maxDistance: DISTANCE + 40,
           includeLocs: 'location',
-          limit: 10000000
+          limit: 100000000
         }
       }
     ])
