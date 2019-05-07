@@ -147,7 +147,7 @@ function mongoDbRunSpatialTest(db, cb) {
           spherical: false,
           near: { type: 'Point', coordinates: [queryLat, queryLon] },
           distanceField: 'calculated',
-          maxDistance: DISTANCE + 40,
+          maxDistance: DISTANCE,
           includeLocs: 'location',
           limit: 100000000
         }
